@@ -13,7 +13,6 @@ Git repo for day day up COMP9444 group.
 1. [Speech Emotion Recognition (Conv1D) - 96.03%](https://www.kaggle.com/code/dmitrybabko/speech-emotion-recognition-conv1d)
 2. [Speech Emotion Recognition with CNN - 92.24%](https://www.kaggle.com/code/lkergalipatak/speech-emotion-recognition-with-cnn)
 3. [Speech Emotion Recognition using LSTM- 73.80%](https://www.kaggle.com/code/blitzapurv/speech-emotion-recognition-using-lstm)
-4. 
 ### Bad Models
 1. [Speech Emotion Recognition with CNN - 44.82%](https://www.kaggle.com/code/ritzing/speech-emotion-recognition-with-cnn)
 2. [Speech Emotion Recognition-Using-LSTM - 56.38%](https://www.kaggle.com/code/ashishsingh226/speech-emotion-recognition-using-lstm)
