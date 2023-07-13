@@ -1,4 +1,4 @@
-# comp9444-project
+# COMP9444 Project
 Git repo for day day up COMP9444 group.
 
 ## Datasets
