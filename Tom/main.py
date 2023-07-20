@@ -125,3 +125,42 @@ print(df.head())
 ######################
 
 # librosa stuff
+
+# audio characterisitics i care about
+# pitch
+# frequency
+# amplitude
+# timbre
+# duration
+# noise
+
+# for graphics
+# create waveform
+# create spectrogram
+
+# for preprocessing
+# data augmentation
+# reduce noise - hear more of the speech other than random noise
+# shift pitch - since some people talk at a higher or lower pitch, altering this can create a greater range
+# stretch - stretching audio can provide more data to analyse
+# can combine some of these, like reduce noise on stretched pitch
+
+# can turn 1 audio into all of these:
+# original
+# reducded noise
+# pitch higher
+# pitch lower
+# stretch
+# pitch higher reducded noise
+# pitch lower reducded noise
+# stretch reducded noise
+# pitch higher stretch
+# pitch higher stretch reducded noise
+# pitch lower stretch
+# pitch lower stretch recuded noise
+# all together 12 audios
+
+# feature extraction
+# timbre - mfcc - emotions often alter tone in speech which is relate to timbre
+# amplitude - rms i think - emotions can cause heightened volume 
+# smoothness - zcr - various emotions can be smooth or rapid and jumping all over the place
