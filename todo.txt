@@ -1,0 +1,36 @@
+FOR PRESENTATION
+===============================================
+Introduction & Data Sources - Medrin - 2 mins MAX
+
+Exploratory Analysis of Data - Tom - 3 mins MAX
+
+Models
+- Model 1 LSTM - Chu - 2 mins MAX
+- Model 2 Conv1D - Haoyu - 2 mins MAX
+
+Results - May - 3 mins MAX
+===============================================
+
+
+
+
+
+GROUP WORK
+======================
+Jupyter Notebook - Tom
+
+Data Preparation - Medrin
+
+Model 1 LSTM - Chu
+Model 2 Conv1D - Haoyu
+
+Result Metrics - May
+=========================================================
+Summary Report - Everyone - We can decide specifics later
+=========================================================
+
+
+
+
+
+
