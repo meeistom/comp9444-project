@@ -1,5 +1,6 @@
 # COMP9444 Project
 Git repo for day day up COMP9444 group.
+The group summary report can be found [here](https://docs.google.com/document/d/1IqX1Msjf2M_zB5cMlaNsrbB-ZozpPUk6WKj1mXfxBxY/edit).
 
 ## Datasets
 ### Main Dataset
