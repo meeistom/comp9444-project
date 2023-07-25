@@ -12,6 +12,7 @@ import math
 import numpy as np
 import pandas as pd
 import librosa
+import webrtcvad
 from IPython.display import Audio
 
 #########
@@ -184,26 +185,36 @@ def add_noise(data):
     SNR = 2 * (A_signal - A_noise)
     return data + noise * SNR
 
-def pitch_audio(data, sr):
-    '''Shift the pitch a certain amount.'''
-    amount = np.random.random()
-    return librosa.effects.pitch_shift(y=data, sr=sr, n_steps=amount)
+def pitch_audio(data, sr,pitch_factor):
+    # A positive value increases the pitch, a negative value decreases it.
+    # For example, pitch_factor = 2.0 increases the pitch by 2 semitones (one octave).
+    return librosa.effects.pitch_shift(y=data, sr=sr, n_steps=pitch_factor)
 
 def stretch_audio(data):
     '''Stretch the data a certain amount.'''
     amount = np.random.random()
     amount = amount if amount > 0.45 else amount + 0.45 # want to make sure audio isn't too long
-    return librosa.effects.time_stretch(y=data, rate=amount)
+    stretched_data = librosa.effects.time_stretch(y=data, rate=amount)
+    return librosa.util.fix_length(data=stretched_data,size=len(data))
+
 
 filename = df.iat[0,1]
 emotion = df.iat[0,0]
 
 print(filename)
 
-data, sr = librosa.load(filename) # REPEATED CODE
-noised_data = add_noise(data)
-pitched_data = pitch_audio(data, sr)
-stretched_data = stretch_audio(data)
+# data, sr = librosa.load(filename) # REPEATED CODE
+# noised_data = add_noise(data)
+# pitched_data = pitch_audio(data, sr,pitch_factor=2.0)
+# stretched_data = stretch_audio(data)
+# stretched_data = librosa.util.fix_length(data=stretched_data,size=len(data))
+# onsets = librosa.onset.onset_detect(y=stretched_data, sr=sr)
+# print(onsets)
+# start_sample = librosa.frames_to_samples(onsets[0])
+# end_sample = librosa.frames_to_samples(onsets[-1])
+# print(len(stretched_data))
+# data_selected = stretched_data[start_sample:end_sample]
+# print(data_selected.shape)
 
 # generate_waveform(emotion, filename, data, sr).show()
 # generate_waveform(emotion, filename, noised_data, sr).show()
@@ -226,7 +237,7 @@ def extract_mfcc(data, sr,flatten: bool = True):
 def mfcc_show(data,sr):
     '''Spectrogram corresponding to the audio.'''
     plt.figure(figsize=(10, 5))
-    mfccs = extract_mfcc(data,sr)
+    mfccs = librosa.feature.mfcc(y=data, sr=sr)
     print(mfccs.shape)
     librosa.display.specshow(mfccs, sr=sr, x_axis='time')  # Displaying  the MFCCs
     plt.show()
@@ -253,7 +264,11 @@ def extract_zcr(data):
     return np.squeeze(librosa.feature.zero_crossing_rate(data))
 
 
-
+def extract_F0(data,sr):
+    # F0 (fundamental frequency)
+    pitches, magnitudes = librosa.piptrack(y=data, sr=sr)
+    pitch_track = pitches[np.argmax(magnitudes, axis=0), np.arange(magnitudes.shape[1])]
+    return pitch_track
 
 # can turn 1 audio into all of these:
 # original
@@ -265,8 +280,8 @@ def extract_zcr(data):
 # pitch lower noise added
 # stretch noise added
 # pitch higher stretch
-# pitch higher stretch noise added
 # pitch lower stretch
+# pitch higher stretch noise added
 # pitch lower stretch recuded noise added
 # all together 12 audios
 
@@ -280,35 +295,11 @@ def extract_features(data, sr, frame_length=2048, hop_length=512):
     result = np.hstack((result,
                         extract_zcr(data),
                         extract_rms(data),
-                        extract_mfcc(data, sr)
+                        extract_mfcc(data, sr),
+                        extract_F0(data,sr)
                                     ))
     return result
 
-def get_features(path, duration=2.5, offset=0.6):
-    # duration and offset are used to take care of the no audio in start and the ending of each audio files as seen above.
-    data, sr = librosa.load(path, duration=duration, offset=offset)
-
-     # without augmentation
-    res1 = extract_features(data, sr)
-    result = np.array(res1)
-
-    # data with noise
-    noise_data = add_noise(data)
-    res2 = extract_features(noise_data, sr)
-    result = np.vstack((result, res2)) # stacking vertically
-
-    # data with pitching
-    pitched_data = pitch_audio(data, sr)
-    res3 = extract_features(pitched_data, sr)
-    result = np.vstack((result, res3)) # stacking vertically
-
-    # data with pitching and white_noise
-    new_data = pitch_audio(data, sr)
-    data_noise_pitch = add_noise(new_data)
-    res3 = extract_features(data_noise_pitch, sr)
-    result = np.vstack((result, res3)) # stacking vertically
-
-    return result
 
 def augment_data(df):
     X, Y = [], []
@@ -319,25 +310,76 @@ def augment_data(df):
         offset=0.6
         data, sr = librosa.load(path, duration=duration, offset=offset)
 
-        # without augmentation
+        # original data
         res1 = extract_features(data, sr)
         features = np.array(res1)
 
-        # data with noise
+        # noise added
         noise_data = add_noise(data)
         res2 = extract_features(noise_data, sr)
         features = np.vstack((features, res2))  # stacking vertically
 
-        # data with pitching
-        pitched_data = pitch_audio(data, sr)
-        res3 = extract_features(pitched_data, sr)
+        # pitch higher
+        pitched_higher_data = pitch_audio(data, sr,pitch_factor=2.0)
+        res3 = extract_features(pitched_higher_data, sr)
         features = np.vstack((features, res3))  # stacking vertically
 
-        # data with pitching and white_noise
-        new_data = pitch_audio(data, sr)
-        data_noise_pitch = add_noise(new_data)
-        res3 = extract_features(data_noise_pitch, sr)
-        features = np.vstack((features, res3))  # stacking vertically
+        # pitch lower
+        pitched_lower_data = pitch_audio(data, sr,pitch_factor=-2.0)
+        res4 = extract_features(pitched_lower_data, sr)
+        features = np.vstack((features, res4))  # stacking vertically
+        # print('res4=',res4.shape)
+        # print('features=',features.shape)
+
+        # stretch
+        stretched_data = stretch_audio(data)
+        res5 = extract_features(stretched_data,sr)
+        # print('res5=',res5.shape)
+        features = np.vstack((features,res5))  # stacking vertically
+
+        # pitch higher noise added
+        pitched_data = pitch_audio(data, sr,pitch_factor=2.0)
+        data_noise_pitch_higher = add_noise(pitched_data)
+        res6 = extract_features(data_noise_pitch_higher, sr)
+        features = np.vstack((features, res6))  # stacking vertically
+
+        # pitch higher noise added
+        pitched_data = pitch_audio(data, sr,pitch_factor=-2.0)
+        data_noise_pitch_lower = add_noise(pitched_data)
+        res7 = extract_features(data_noise_pitch_lower, sr)
+        features = np.vstack((features, res7))  # stacking vertically
+
+        # stretch noise added
+        stretched_data = stretch_audio(data)
+        data_noise_streched = add_noise(stretched_data)
+        res8 = extract_features(data_noise_streched, sr)
+        features = np.vstack((features, res8))  # stacking vertically
+
+        # pitch higher stretch
+        stretched_data = stretch_audio(data)
+        data_streched_pitched_higher = pitch_audio(stretched_data,sr,pitch_factor=2.0)
+        res9 = extract_features(data_streched_pitched_higher, sr)
+        features = np.vstack((features, res9))  # stacking vertically
+
+        # pitch lower stretch
+        stretched_data = stretch_audio(data)
+        data_streched_pitched_lower = pitch_audio(stretched_data,sr,pitch_factor=-2.0)
+        res10 = extract_features(data_streched_pitched_lower, sr)
+        features = np.vstack((features, res10))  # stacking vertically
+
+        # pitch higher stretch noise added
+        stretched_data = stretch_audio(data)
+        data_noise_streched = add_noise(stretched_data)
+        data_noise_streched_pitched_higher = pitch_audio(data_noise_streched,sr,pitch_factor=2.0)
+        res11 = extract_features(data_noise_streched_pitched_higher,sr)
+        features = np.vstack((features,res11))  # stacking vertically
+
+        # pitch lower stretch noise added
+        stretched_data = stretch_audio(data)
+        data_noise_streched = add_noise(stretched_data)
+        data_noise_streched_pitched_lower = pitch_audio(data_noise_streched,sr,pitch_factor=-2.0)
+        res12 = extract_features(data_noise_streched_pitched_lower,sr)
+        features = np.vstack((features,res12))  # stacking vertically
 
         if ind % 100 == 0:
             print(f"{ind} samples has been processed...")
