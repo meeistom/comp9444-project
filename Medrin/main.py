@@ -12,7 +12,8 @@ import math
 import numpy as np
 import pandas as pd
 import librosa
-import webrtcvad
+import parselmouth
+
 from IPython.display import Audio
 
 #########
@@ -124,6 +125,7 @@ print(tess_df.head())
 df = pd.concat([crema_df, ravdess_df, savee_df, tess_df], axis=0)
 print(df.head())
 print(df.shape)
+
 ######################
 # DATA PREPROCESSING #
 ######################
@@ -229,7 +231,10 @@ print(filename)
 # timbre - mfcc - emotions often alter tone in speech which is relate to timbre
 # amplitude - rms i think - emotions can cause heightened volume 
 # smoothness - zcr - various emotions can be smooth or rapid and jumping all over the place
-
+# F0 (Fundamental Frequency) - The basic frequency of a sound - Emotions often alter the pitch of the voice, which is related to the fundamental frequency
+# Jitter (Pitch Jitter) - Variations in the pitch or frequency - Emotions can cause fluctuations in the stability of pitch, which is captured by jitter.
+# Shimmer (Amplitude Shimmer) - Variations in the loudness or amplitude - Emotions can cause changes in the stability of volume, which is measured by shimmer.
+# Speech Rate - The speed at which words are spoken - Emotions can influence the pace of speech, making it faster or slower, which relates to the speech rate.
 def extract_mfcc(data, sr,flatten: bool = True):
     mfcc_feature = librosa.feature.mfcc(y=data, sr=sr)
     return np.squeeze(mfcc_feature.T) if not flatten else np.ravel(mfcc_feature.T)
@@ -259,16 +264,34 @@ def rms_show(data,sr,hop_length):
 
 # rms_show(data,sr,hop_length=512)
 
-
 def extract_zcr(data):
     return np.squeeze(librosa.feature.zero_crossing_rate(data))
-
 
 def extract_F0(data,sr):
     # F0 (fundamental frequency)
     pitches, magnitudes = librosa.piptrack(y=data, sr=sr)
     pitch_track = pitches[np.argmax(magnitudes, axis=0), np.arange(magnitudes.shape[1])]
     return pitch_track
+
+def extract_jitter(filename):
+    sound = parselmouth.Sound(filename)
+    pointProcess = parselmouth.praat.call(sound, "To PointProcess (periodic, cc)", 75, 600)
+    jitter = parselmouth.praat.call(pointProcess, "Get jitter (local)", 0, 0, 0.0001, 0.02, 1.3)
+    return jitter
+
+def extract_shimmer(filename):
+    sound = parselmouth.Sound(filename)
+    pointProcess = parselmouth.praat.call(sound, "To PointProcess (periodic, cc)", 75, 600)
+    shimmer = parselmouth.praat.call([sound, pointProcess], "Get shimmer (local)", 0, 0, 0.0001, 0.02, 1.3, 1.6)
+    return shimmer
+
+# print(extract_jitter(filename))
+# print(extract_shimmer(filename))
+
+def extract_speech_rate(data):
+    zero_crossings = librosa.zero_crossings(data)
+    speaking_rate = np.sum(zero_crossings) / len(data)
+    return speaking_rate
 
 # can turn 1 audio into all of these:
 # original
@@ -289,14 +312,17 @@ def extract_F0(data,sr):
 # print(extract_rms(data))
 # print(extract_zcr(data).shape)
 
-def extract_features(data, sr, frame_length=2048, hop_length=512):
+def extract_features(data, sr,path, frame_length=2048, hop_length=512):
     #Compute the Root Mean Square Energy (RMSE) for each frame of the audio with a length of 2048(frame_length) by directly calling the `rmse` function from librosa.
     result = np.array([])
     result = np.hstack((result,
                         extract_zcr(data),
                         extract_rms(data),
                         extract_mfcc(data, sr),
-                        extract_F0(data,sr)
+                        extract_F0(data,sr),
+                        extract_jitter(path),
+                        extract_shimmer(path),
+                        extract_speech_rate(data)
                                     ))
     return result
 
@@ -311,74 +337,74 @@ def augment_data(df):
         data, sr = librosa.load(path, duration=duration, offset=offset)
 
         # original data
-        res1 = extract_features(data, sr)
+        res1 = extract_features(data, sr,path)
         features = np.array(res1)
 
         # noise added
         noise_data = add_noise(data)
-        res2 = extract_features(noise_data, sr)
+        res2 = extract_features(noise_data, sr,path)
         features = np.vstack((features, res2))  # stacking vertically
 
         # pitch higher
         pitched_higher_data = pitch_audio(data, sr,pitch_factor=2.0)
-        res3 = extract_features(pitched_higher_data, sr)
+        res3 = extract_features(pitched_higher_data, sr,path)
         features = np.vstack((features, res3))  # stacking vertically
 
         # pitch lower
         pitched_lower_data = pitch_audio(data, sr,pitch_factor=-2.0)
-        res4 = extract_features(pitched_lower_data, sr)
+        res4 = extract_features(pitched_lower_data, sr,path)
         features = np.vstack((features, res4))  # stacking vertically
         # print('res4=',res4.shape)
         # print('features=',features.shape)
 
         # stretch
         stretched_data = stretch_audio(data)
-        res5 = extract_features(stretched_data,sr)
+        res5 = extract_features(stretched_data,sr,path)
         # print('res5=',res5.shape)
         features = np.vstack((features,res5))  # stacking vertically
 
         # pitch higher noise added
         pitched_data = pitch_audio(data, sr,pitch_factor=2.0)
         data_noise_pitch_higher = add_noise(pitched_data)
-        res6 = extract_features(data_noise_pitch_higher, sr)
+        res6 = extract_features(data_noise_pitch_higher, sr,path)
         features = np.vstack((features, res6))  # stacking vertically
 
         # pitch higher noise added
         pitched_data = pitch_audio(data, sr,pitch_factor=-2.0)
         data_noise_pitch_lower = add_noise(pitched_data)
-        res7 = extract_features(data_noise_pitch_lower, sr)
+        res7 = extract_features(data_noise_pitch_lower, sr,path)
         features = np.vstack((features, res7))  # stacking vertically
 
         # stretch noise added
         stretched_data = stretch_audio(data)
         data_noise_streched = add_noise(stretched_data)
-        res8 = extract_features(data_noise_streched, sr)
+        res8 = extract_features(data_noise_streched, sr,path)
         features = np.vstack((features, res8))  # stacking vertically
 
         # pitch higher stretch
         stretched_data = stretch_audio(data)
         data_streched_pitched_higher = pitch_audio(stretched_data,sr,pitch_factor=2.0)
-        res9 = extract_features(data_streched_pitched_higher, sr)
+        res9 = extract_features(data_streched_pitched_higher, sr,path)
         features = np.vstack((features, res9))  # stacking vertically
 
         # pitch lower stretch
         stretched_data = stretch_audio(data)
         data_streched_pitched_lower = pitch_audio(stretched_data,sr,pitch_factor=-2.0)
-        res10 = extract_features(data_streched_pitched_lower, sr)
+        res10 = extract_features(data_streched_pitched_lower, sr,path)
         features = np.vstack((features, res10))  # stacking vertically
 
         # pitch higher stretch noise added
         stretched_data = stretch_audio(data)
         data_noise_streched = add_noise(stretched_data)
         data_noise_streched_pitched_higher = pitch_audio(data_noise_streched,sr,pitch_factor=2.0)
-        res11 = extract_features(data_noise_streched_pitched_higher,sr)
+        res11 = extract_features(data_noise_streched_pitched_higher,sr,path)
         features = np.vstack((features,res11))  # stacking vertically
 
         # pitch lower stretch noise added
         stretched_data = stretch_audio(data)
         data_noise_streched = add_noise(stretched_data)
         data_noise_streched_pitched_lower = pitch_audio(data_noise_streched,sr,pitch_factor=-2.0)
-        res12 = extract_features(data_noise_streched_pitched_lower,sr)
+        res12 = extract_features(data_noise_streched_pitched_lower,sr,path)
         features = np.vstack((features,res12))  # stacking vertically
 
         if ind % 100 == 0:
