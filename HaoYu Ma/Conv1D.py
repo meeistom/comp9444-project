@@ -15,8 +15,10 @@ from keras.callbacks import EarlyStopping
 df = pd.read_csv("features_simple.csv")
 df = df.fillna(0)
 
-X = df.iloc[:][: -1]
-Y = df.iloc[:][-1]
+X = df.iloc[:, : -1]
+Y = df.iloc[:, -1]
+
+# [48648 rows x 2488 columns]
 
 lb = LabelEncoder()
 Y = lb.fit_transform(Y)
