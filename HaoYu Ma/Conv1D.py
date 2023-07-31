@@ -11,6 +11,7 @@ import tensorflow
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.callbacks import EarlyStopping
+from keras.utils import to_categorical
 
 df = pd.read_csv("features_simple.csv")
 df = df.fillna(0)
@@ -18,13 +19,19 @@ df = df.fillna(0)
 X = df.iloc[:, : -1]
 Y = df.iloc[:, -1]
 
-# [48648 rows x 2488 columns]
 
 lb = LabelEncoder()
 Y = lb.fit_transform(Y)
 
 X_train, X_test, y_train, y_test = train_test_split(X, Y, random_state=42, test_size=0.2, shuffle=True)
-X_train.shape, X_test.shape, y_train.shape, y_test.shape
+# X_train.shape, X_test.shape, y_train.shape, y_test.shape
+
+#################################################################################
+
+y_train_one_hot = to_categorical(y_train, num_classes=8)
+y_test_one_hot = to_categorical(y_test, num_classes=8)
+
+####################################################################################
 
 # Standardize data
 scaler = StandardScaler()
@@ -88,7 +95,7 @@ model.add(layers.MaxPooling1D(pool_size=3, strides = 2, padding = 'same'))
 model.add(layers.Flatten())
 model.add(layers.Dense(512, activation='relu'))
 model.add(layers.BatchNormalization())
-model.add(layers.Dense(7, activation="softmax"))
+model.add(layers.Dense(8, activation="softmax"))
 
 model.compile(optimizer="rmsprop", loss="categorical_crossentropy", metrics=["acc", f1_m])
 
@@ -97,6 +104,12 @@ model.summary()
 EPOCHS = 50
 batch_size = 64
 
+'''
 history = model.fit(X_train, y_train, validation_data=(X_test, y_test),
+                    epochs=EPOCHS, batch_size=batch_size,
+                    callbacks=[earlystopping, learning_rate_reduction])
+'''
+
+history = model.fit(X_train, y_train_one_hot, validation_data=(X_test, y_test_one_hot),
                     epochs=EPOCHS, batch_size=batch_size,
                     callbacks=[earlystopping, learning_rate_reduction])
